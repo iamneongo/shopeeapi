@@ -3,6 +3,7 @@
 Script này tái hiện request `batchCustomLink` lấy từ Chrome DevTools mà không ghi cookie, CSRF token hoặc chữ ký chống bot vào repository.
 
 Phân tích chi tiết vòng đời và nguồn từng header nằm tại [docs/request-lifecycle.md](docs/request-lifecycle.md).
+Ma trận kiểm thử và phạm vi đã xác minh nằm tại [docs/test-matrix.md](docs/test-matrix.md).
 
 Có hai chế độ:
 
@@ -62,6 +63,29 @@ Chrome được chạy có giao diện theo chủ ý. Thử nghiệm headless b�
 
 > `.shopee-browser-profile` chứa phiên đăng nhập đang hoạt động. Không chia sẻ, upload hoặc commit thư mục này.
 
+### CAPTCHA/xác minh
+
+Khi response hoặc URL có tín hiệu CAPTCHA, `verify/traffic`, anti-crawler hoặc rate limit, script sẽ:
+
+1. Dừng request và đưa cửa sổ Chrome ra trước.
+2. Chờ người dùng hoàn tất xác minh thủ công, tối đa 10 phút.
+3. Tải lại trang Custom Link để SDK tạo chữ ký mới.
+4. Gửi lại request đúng một lần. Nếu vẫn bị yêu cầu xác minh, script dừng và báo lỗi thay vì lặp vô hạn.
+
+Không có mã tự giải hay vượt CAPTCHA. Có thể kiểm tra nhánh xử lý bằng overlay giả, tự hoàn tất sau 2 giây:
+
+```powershell
+npm run captcha:demo
+```
+
+Demo này chạy trên trang cục bộ, không cần đăng nhập và không gửi request ra ngoài. Để mô phỏng ngay trước request Shopee sau khi profile đã đăng nhập:
+
+```powershell
+npm run browser:custom-link -- `
+  --simulate-captcha `
+  --link https://s.shopee.vn/3B7gM2EwwS
+```
+
 ## cURL replay — phục vụ debug
 
 ### Lấy request mới bằng Chrome DevTools
@@ -76,7 +100,7 @@ Không gửi file cURL cho người khác: nó chứa cookie/token có thể cho
 
 ### Chạy
 
-Yêu cầu Node.js 18 trở lên, không cần cài package.
+Yêu cầu Node.js 20 trở lên. Đây cũng là phiên bản tối thiểu của Playwright hiện tại.
 
 ```powershell
 npm run custom-link -- --curl-file .shopee-request.curl.txt --link https://s.shopee.vn/3B7gM2EwwS

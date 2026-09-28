@@ -1,6 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 
+import { isCaptchaSignal, summarizeShopeeResponse } from "./shopee-response.mjs";
+
 const ENDPOINT = "https://affiliate.shopee.vn/api/v3/gql?q=batchCustomLink";
 
 export const QUERY = `
@@ -114,22 +116,28 @@ export function createPayload(links, subIds = []) {
   };
 }
 
-function parseArguments(argv) {
+export function parseArguments(argv) {
   const options = { links: [], subIds: [] };
 
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     const value = argv[index + 1];
+    const requiredValue = () => {
+      if (value === undefined || value.startsWith("--")) {
+        throw new Error(`Thiếu giá trị cho ${argument}.`);
+      }
+      return value;
+    };
 
     if (argument === "--curl-file") {
-      options.curlFile = value;
+      options.curlFile = requiredValue();
       index += 1;
     } else if (argument === "--link") {
-      options.links.push(value);
+      options.links.push(requiredValue().trim());
       index += 1;
     } else if (/^--sub-id[1-5]$/.test(argument)) {
       const subIdIndex = Number(argument.at(-1)) - 1;
-      options.subIds[subIdIndex] = value;
+      options.subIds[subIdIndex] = requiredValue().trim();
       index += 1;
     } else if (argument === "--debug") {
       options.debug = true;
@@ -154,7 +162,7 @@ Ví dụ:
   npm run custom-link -- --curl-file .shopee-request.curl.txt --link https://s.shopee.vn/3B7gM2EwwS`);
 }
 
-function validateReplay(parsed) {
+export function validateReplay(parsed) {
   if (new URL(parsed.url).origin !== "https://affiliate.shopee.vn") {
     throw new Error("Từ chối gửi cookie: URL cURL không thuộc affiliate.shopee.vn.");
   }
@@ -169,7 +177,7 @@ function validateReplay(parsed) {
   }
 }
 
-export async function replayCustomLink({ curlFile, links, subIds = [], debug = false }) {
+export async function replayCustomLink({ curlFile, links, subIds = [], debug = false, fetchImpl = fetch }) {
   const parsed = parseCurl(await readFile(curlFile, "utf8"));
   validateReplay(parsed);
 
@@ -195,7 +203,7 @@ export async function replayCustomLink({ curlFile, links, subIds = [], debug = f
     );
   }
 
-  const response = await fetch(ENDPOINT, {
+  const response = await fetchImpl(ENDPOINT, {
     method: "POST",
     headers,
     body: JSON.stringify(payload),
@@ -210,16 +218,31 @@ export async function replayCustomLink({ curlFile, links, subIds = [], debug = f
     throw new Error(`Shopee trả về HTTP ${response.status}, không phải JSON: ${responseText.slice(0, 300)}`);
   }
 
+  if (isCaptchaSignal({
+    status: response.status,
+    url: response.url,
+    bodyText: responseText,
+    body: responseBody,
+  })) {
+    const summary = summarizeShopeeResponse(responseBody);
+    throw new Error(
+      `Shopee yêu cầu CAPTCHA/xác minh${summary.errorCode ? ` (mã ${summary.errorCode})` : ""}. `
+      + "Hãy dùng browser mode để Chrome tạo chữ ký mới và xử lý xác minh thủ công.",
+    );
+  }
+
   if (!response.ok) {
-    throw new Error(`Shopee trả về HTTP ${response.status}: ${JSON.stringify(responseBody)}`);
+    throw new Error(`Shopee trả về HTTP ${response.status}: ${JSON.stringify(summarizeShopeeResponse(responseBody))}`);
   }
   if (responseBody.errors?.length) {
-    throw new Error(`GraphQL lỗi: ${JSON.stringify(responseBody.errors)}`);
+    throw new Error(`GraphQL lỗi: ${JSON.stringify(summarizeShopeeResponse(responseBody).graphqlErrors)}`);
   }
 
   const results = responseBody?.data?.batchCustomLink;
   if (!Array.isArray(results)) {
-    throw new Error(`Phản hồi không có data.batchCustomLink: ${JSON.stringify(responseBody)}`);
+    throw new Error(
+      `Phản hồi không có data.batchCustomLink: ${JSON.stringify(summarizeShopeeResponse(responseBody))}`,
+    );
   }
 
   return results;
@@ -249,4 +272,3 @@ if (isEntryPoint) {
     process.exitCode = 1;
   });
 }
-

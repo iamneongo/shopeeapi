@@ -7,12 +7,14 @@
     "custom-link": "node src/shopee-custom-link.mjs",
     "browser:setup": "node src/shopee-browser-custom-link.mjs --setup",
     "browser:custom-link": "node src/shopee-browser-custom-link.mjs",
-    "test": "node --test"
+    "captcha:demo": "node src/shopee-browser-custom-link.mjs --captcha-demo",
+    "test": "node --test",
+    "test:browser": "node --test test/shopee-browser-integration.test.mjs"
   },
   "dependencies": {
     "playwright": "^1.63.0"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   }
 }

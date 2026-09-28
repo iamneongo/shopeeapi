@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { createPayload, parseCurl } from "../src/shopee-custom-link.mjs";
+import { createPayload, parseArguments, parseCurl } from "../src/shopee-custom-link.mjs";
 
 test("parseCurl đọc URL, header, cookie và ANSI-C quoted JSON", () => {
   const curl = String.raw`curl --url 'https://affiliate.shopee.vn/api/v3/gql?q=batchCustomLink' \
@@ -41,3 +41,14 @@ test("createPayload tạo đúng batch GraphQL và Sub ID", () => {
   ]);
 });
 
+test("parseArguments trim input và từ chối flag thiếu value", () => {
+  const options = parseArguments([
+    "--curl-file", "request.txt",
+    "--link", " https://shopee.vn/one ",
+    "--sub-id2", " Feed02 ",
+  ]);
+  assert.deepEqual(options.links, ["https://shopee.vn/one"]);
+  assert.equal(options.subIds[1], "Feed02");
+  assert.throws(() => parseArguments(["--curl-file", "--link"]), /Thiếu giá trị cho --curl-file/);
+  assert.throws(() => parseArguments(["--sub-id1"]), /Thiếu giá trị cho --sub-id1/);
+});
