@@ -1,0 +1,6 @@
+.shopee-request.curl.txt
+*.curl.secret.txt
+.env
+.shopee-browser-profile/
+test-results/
+node_modules/

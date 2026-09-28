@@ -1,0 +1,18 @@
+{
+  "name": "shopee-affiliate-custom-link-replay",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "custom-link": "node src/shopee-custom-link.mjs",
+    "browser:setup": "node src/shopee-browser-custom-link.mjs --setup",
+    "browser:custom-link": "node src/shopee-browser-custom-link.mjs",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "playwright": "^1.63.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
